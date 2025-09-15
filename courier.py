@@ -32,6 +32,51 @@ def generate_packages(day):
         })
     return packages
 
+# ---CORE GAMEPLAY FUNCTIONS---
+def show_status(player, pos, inventory, turns_left, packages):
+    print("\nTurns left:", turns_left, "| Health:", player["health"], "| Gold:", player["gold"], "| Rep:", player["rep"])
+    print("You are at", pos)
+    print("Inventory:", inventory)
+
+    # Show active deliveries
+    todo = [p for p in packages if p["id"] in [itm.get("pkg_id") for itm in inventory]]
+    for t in todo:
+        print("  – Deliver {} to {} at {}".format(t["item"], t["npc"], t["destination"]))
+
+def handle_move(cmd, pos, turns_left, player, inventory, packages):
+    old_pos = pos[:]
+    if cmd == "w": pos[1] += 1
+    elif cmd == "s": pos[1] -= 1
+    elif cmd == "a": pos[0] -= 1
+    elif cmd == "d": pos[0] += 1
+
+    # Keep inside map bounds
+    pos[0] = max(0, min(MAP_W-1, pos[0]))
+    pos[1] = max(0, min(MAP_H-1, pos[1]))
+
+    if pos != old_pos:
+        turns_left -= 1
+        road_event(player, inventory)
+        arrive_at_location(pos, packages, inventory, player)
+
+    return pos, turns_left
+
+def handle_packages(packages, inventory):
+    print("\nAvailable packages today:")
+    for pkg in packages:
+        print(" {}: {} -> {} @ {}  (reward {} gold)".format(
+            pkg["id"], pkg["item"], pkg["npc"], pkg["destination"], pkg["reward"]))
+
+    pick = input("Pick package id to accept (or Enter to skip): ")
+    if pick.isdigit():
+        pick = int(pick)
+        chosen = next((p for p in packages if p["id"] == pick), None)
+        if chosen and chosen["id"] not in [itm.get("pkg_id") for itm in inventory]:
+            inventory.append({"name": chosen["item"], "pkg_id": chosen["id"]})
+            print("Accepted:", chosen["item"])
+        else:
+            print("Invalid or already accepted.")
+
 # ---GAME LOOP---
 def main():
     player = load_player()
@@ -42,47 +87,17 @@ def main():
 
     print("=== Skyrim Courier Day {} ===".format(player["day"]))
     while turns_left > 0 and player["health"] > 0:
-        print("\nTurns left:", turns_left, "| Health:", player["health"], "| Gold:", player["gold"], "| Rep:", player["rep"])
-        print("You are at", pos)
-        print("Inventory:", inventory)
-
-        # Show accepted packages yet to deliver
-        todo = [p for p in packages if p["id"] in [itm.get("pkg_id") for itm in inventory]]
-        for t in todo:
-            print("  – Deliver {} to {} at {}".format(t["item"], t["npc"], t["destination"]))
+        show_status(player, pos, inventory, turns_left, packages)
 
         cmd = input("Move (wasd), Check packages (p), Quit (q): ").lower()
         if cmd == "q":
             break
         elif cmd in "wasd":
-            old_pos = pos[:]
-            if cmd == "w": pos[1] += 1
-            elif cmd == "s": pos[1] -= 1
-            elif cmd == "a": pos[0] -= 1
-            elif cmd == "d": pos[0] += 1
-            pos[0] = max(0, min(MAP_W-1, pos[0]))
-            pos[1] = max(0, min(MAP_H-1, pos[1]))
-            if pos != old_pos:
-                turns_left -= 1
-                road_event(player, inventory)
-                arrive_at_location(pos, packages, inventory, player)
-
+            pos, turns_left = handle_move(cmd, pos, turns_left, player, inventory, packages)
         elif cmd == "p":
-            print("\nAvailable packages today:")
-            for pkg in packages:
-                print(" {}: {} -> {} @ {}  (reward {} gold)".format(
-                    pkg["id"], pkg["item"], pkg["npc"], pkg["destination"], pkg["reward"]))
-            pick = input("Pick package id to accept (or Enter to skip): ")
-            if pick.isdigit():
-                pick = int(pick)
-                chosen = next((p for p in packages if p["id"] == pick), None)
-                if chosen and chosen["id"] not in [itm.get("pkg_id") for itm in inventory]:
-                    inventory.append({"name": chosen["item"], "pkg_id": chosen["id"]})
-                    print("Accepted:", chosen["item"])
-                else:
-                    print("Invalid or already accepted.")
+            handle_packages(packages, inventory)
 
-    # ---------- END OF DAY ----------
+    # End of day
     print("\nDay over. Final stats:", player)
     player["day"] += 1
     save_player(player)
