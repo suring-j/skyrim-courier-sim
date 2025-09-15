@@ -64,8 +64,7 @@ def handle_move(cmd, pos, turns_left, player, inventory, packages):
 def handle_packages(packages, inventory):
     print("\nAvailable packages today:")
     for pkg in packages:
-        print(" {}: {} -> {} @ {}  (reward {} gold)".format(
-            pkg["id"], pkg["item"], pkg["npc"], pkg["destination"], pkg["reward"]))
+        print(" {id}: {item} -> {npc} @ {destination} (reward {reward} gold)".format(**pkg))
 
     pick = input("Pick package id to accept (or Enter to skip): ")
     if pick.isdigit():
